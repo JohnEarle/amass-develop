@@ -46,7 +46,8 @@ func (l *letitgo) Name() string {
 
 // Start registers the plugin with the Amass engine
 func (l *letitgo) Start(r et.Registry) error {
-	return r.RegisterHandler(&et.Handler{
+	l.log = r.Log().WithGroup("plugin").With("name", l.name)
+	if err := return r.RegisterHandler(&et.Handler{
 		Plugin:       l,
 		Name:         l.name + "-Handler",
 		Priority:     5,
@@ -127,7 +128,7 @@ func (l *letitgo) query(e *et.Event, name string, source *et.Source) error {
 			}
 		}
 	}
-	return nil
+	return l.store(e, subs.Slice())
 }
 
 // Response represents the XML response structure
