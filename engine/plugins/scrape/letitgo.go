@@ -54,13 +54,21 @@ func (l *letitgo) Start(r et.Registry) error {
 		EventType:    oam.FQDN,
 		Callback:     l.query,
 	})
-	log.Info("LetItGo Plugin started")
+	if err != nil {
+		return err
+	}
+	l.log.Info("LetItGo Plugin started")
+	return nil // Ensure proper return
 }
 
 // Stop implements the Stop method required by et.Plugin
 func (l *letitgo) Stop() {
 	// Cleanup if necessary
 	l.log.Info("LetItGo Plugin stopped")
+}
+
+func (l *letitgo) process(e *et.Event, entities []*dbt.Entity, source *et.Source) {
+	support.ProcessFQDNsWithSource(e, assets, l.source)
 }
 
 // Query performs the scraping operation
