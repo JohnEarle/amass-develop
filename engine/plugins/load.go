@@ -17,6 +17,8 @@ import (
 	"github.com/owasp-amass/amass/v4/engine/plugins/whois"
 	"github.com/owasp-amass/amass/v4/engine/plugins/whois/bgptools"
 	et "github.com/owasp-amass/amass/v4/engine/types"
+	"github.com/owasp-amass/amass/v4/engine/plugins/scrape/letitgo"
+	
 )
 
 var pluginNewFuncs = []func() et.Plugin{
