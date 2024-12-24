@@ -118,4 +118,4 @@ require (
 	modernc.org/sqlite v1.34.3 // indirect
 )
 
-replace github.com/owasp-amass/amass/v4/engine/plugins/scrape/letitgo => ./engine/plugins/scrape/letitgo
+replace github.com/owasp-amass/amass/v4/engine/plugins/scrape/letitgo => ./engine/plugins/scrape/
