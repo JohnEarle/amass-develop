@@ -11,6 +11,8 @@ import (
 
 	et "github.com/owasp-amass/amass/v4/engine/types"
 	oamdomain "github.com/owasp-amass/open-asset-model/domain"
+	dbt "github.com/owasp-amass/asset-db/types"
+	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/weppos/publicsuffix-go/net/publicsuffix"
 	"go.uber.org/ratelimit"
 )
@@ -18,6 +20,7 @@ import (
 type letitgo struct {
 	name   string
 	rlimit ratelimit.Limiter
+	log    *slog.Logger
 	source *et.Source
 }
 
@@ -44,27 +47,25 @@ func (l *letitgo) Start(r et.Registry) error {
 		Name:         l.name + "-Handler",
 		Priority:     5,
 		MaxInstances: 5,
-		EventType:    "dns",
-		Callback:     l.handleEvent,
+		EventType:    oamdomain.FQDN,
+		Callback:     l.query,
 	})
+	log.Info("LetItGo Plugin started")
 }
 
 // Stop implements the Stop method required by et.Plugin
 func (l *letitgo) Stop() {
-	// Perform any necessary cleanup here
+	// Cleanup if necessary
+	l.log.Info("LetItGo Plugin stopped")
 }
 
-// HandleEvent wraps Run for event-based callbacks
-func (l *letitgo) handleEvent(e *et.Event) error {
+// Query performs the scraping operation
+func (l *letitgo) query(e *et.Event) error {
 	if e == nil || e.Session == nil {
 		return fmt.Errorf("invalid event or session")
 	}
-	return l.Run(context.TODO(), e)
-}
 
-// Run executes the scraping logic
-func (l *letitgo) Run(ctx context.Context, e *et.Event) error {
-	l.rlimit.Take()
+	l.rlimit.Take() // Rate limiting
 
 	bareDomains := make(map[string]bool)
 	retry := true
@@ -74,7 +75,7 @@ func (l *letitgo) Run(ctx context.Context, e *et.Event) error {
 			<soap:Body><Domain>%s</Domain></soap:Body></soap:Envelope>`, e.Name)
 
 		url := "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc"
-		resp, err := postSOAP(ctx, url, soapEnvelope)
+		resp, err := postSOAP(context.TODO(), url, soapEnvelope)
 		if err != nil {
 			return err
 		}
@@ -129,6 +130,42 @@ type Response struct {
 			} `xml:"Response"`
 		} `xml:"GetFederationInformationResponseMessage"`
 	} `xml:"Body"`
+}
+
+func (l *letitgo) check(e *et.Event) error {
+	fqdn, ok := e.Entity.Asset.(*domain.FQDN)
+	if !ok {
+		return errors.New("failed to extract the FQDN asset")
+	}
+
+	if a, conf := e.Session.Scope().IsAssetInScope(fqdn, 0); conf == 0 || a == nil {
+		return nil
+	} else if f, ok := a.(*domain.FQDN); !ok || f == nil || !strings.EqualFold(fqdn.Name, f.Name) {
+		return nil
+	}
+
+
+	since, err := support.TTLStartTime(e.Session.Config(), string(oam.FQDN), string(oam.FQDN), l.name)
+	if err != nil {
+		return err
+	}
+
+	var names []*dbt.Entity
+	if support.AssetMonitoredWithinTTL(e.Session, e.Entity, l.source, since) {
+		names = append(names, l.lookup(e, fqdn.Name, l.source, since)...)
+	} else {
+		names = append(names, l.query(e, fqdn.Name, l.source)...)
+		support.MarkAssetMonitored(e.Session, e.Entity, l.source)
+	}
+
+	if len(names) > 0 {
+		l.process(e, names, l.source)
+	}
+	return nil
+}
+
+func (l *letitgo) lookup(e *et.Event, name string, since time.Time) []*dbt.Entity {
+	return support.SourceToAssetsWithinTTL(e.Session, name, string(oam.FQDN), l.source, since)
 }
 
 // postSOAP sends the SOAP request to the specified URL
