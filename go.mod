@@ -1,4 +1,4 @@
-module github.com/JohnEarle/amass-develop/v4
+module github.com/owasp-amass/amass/v4
 
 go 1.23.1
 
@@ -117,3 +117,5 @@ require (
 	modernc.org/memory v1.8.0 // indirect
 	modernc.org/sqlite v1.34.3 // indirect
 )
+
+replace github.com/owasp-amass/amass/v4 => github.com/JohnEarle/amass-develop/v5 v5.0.0

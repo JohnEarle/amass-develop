@@ -24,7 +24,7 @@ RUN addgroup user \
     && chown user:user /.config/amass \
     && mkdir /data \
     && chown user:user /data
-USER user
+USER user.
 WORKDIR /data
 STOPSIGNAL SIGINT
 ENTRYPOINT ["/bin/amass"]

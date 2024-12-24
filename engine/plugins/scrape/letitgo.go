@@ -10,8 +10,8 @@ import (
 	"time"
 
 	et "github.com/owasp-amass/amass/v4/engine/types"
+	oamdomain "github.com/owasp-amass/open-asset-model/domain"
 	"github.com/weppos/publicsuffix-go/net/publicsuffix"
-	"github.com/owasp-amass/amass/v4/utils/net/http"
 	"go.uber.org/ratelimit"
 )
 
@@ -21,45 +21,57 @@ type letitgo struct {
 	source *et.Source
 }
 
+// NewLetItGo initializes the LetItGo plugin
 func NewLetItGo() et.Plugin {
 	return &letitgo{
 		name:   "LetItGo",
 		rlimit: ratelimit.New(2, ratelimit.WithoutSlack),
 		source: &et.Source{
-			Name:       "LetItGo",
-			Description: "Scrapes Outlook Autodiscover for domain information",
+			Name: "LetItGo",
 		},
 	}
 }
 
+// Name returns the plugin name
 func (l *letitgo) Name() string {
 	return l.name
 }
 
-func (l *letitgo) Run(ctx context.Context, sess et.Session, domain string) error {
-	l.rlimit.Take()
-	
-	bareDomains := make(map[string]bool)
+// Start registers the plugin with the Amass engine
+func (l *letitgo) Start(r et.Registry) error {
+	return r.RegisterHandler(&et.Handler{
+		Plugin:       l,
+		Name:         l.name + "-Handler",
+		Priority:     5,
+		MaxInstances: 5,
+		EventType:    "dns",
+		Callback:     l.handleEvent,
+	})
+}
 
+// Stop implements the Stop method required by et.Plugin
+func (l *letitgo) Stop() {
+	// Perform any necessary cleanup here
+}
+
+// HandleEvent wraps Run for event-based callbacks
+func (l *letitgo) handleEvent(e *et.Event) error {
+	if e == nil || e.Session == nil {
+		return fmt.Errorf("invalid event or session")
+	}
+	return l.Run(context.TODO(), e)
+}
+
+// Run executes the scraping logic
+func (l *letitgo) Run(ctx context.Context, e *et.Event) error {
+	l.rlimit.Take()
+
+	bareDomains := make(map[string]bool)
 	retry := true
 	for retry {
-		soapEnvelope := fmt.Sprintf(`<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:exm="http://schemas.microsoft.com/exchange/services/2006/messages" xmlns:ext="http://schemas.microsoft.com/exchange/services/2006/types" xmlns:a="http://www.w3.org/2005/08/addressing" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-<soap:Header>
-	<a:Action soap:mustUnderstand="1">http://schemas.microsoft.com/exchange/2010/Autodiscover/Autodiscover/GetFederationInformation</a:Action>
-	<a:To soap:mustUnderstand="1">https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc</a:To>
-	<a:ReplyTo>
-		<a:Address>http://www.w3.org/2005/08/addressing/anonymous</a:Address>
-	</a:ReplyTo>
-</soap:Header>
-<soap:Body>
-	<GetFederationInformationRequestMessage xmlns="http://schemas.microsoft.com/exchange/2010/Autodiscover">
-		<Request>
-			<Domain>%s</Domain>
-		</Request>
-	</GetFederationInformationRequestMessage>
-</soap:Body>
-</soap:Envelope>`, domain)
+		soapEnvelope := fmt.Sprintf(`<?xml version="1.0"?>
+			<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+			<soap:Body><Domain>%s</Domain></soap:Body></soap:Envelope>`, e.Name)
 
 		url := "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc"
 		resp, err := postSOAP(ctx, url, soapEnvelope)
@@ -79,39 +91,33 @@ func (l *letitgo) Run(ctx context.Context, sess et.Session, domain string) error
 				continue
 			}
 			bareDomain, err := publicsuffix.EffectiveTLDPlusOne(d)
-			if err != nil {
-				continue
-			}
-			bareDomains[strings.ToLower(bareDomain)] = true
-		}
-
-		if len(bareDomains) == 0 && !strings.HasSuffix(domain, "onmicrosoft.com") {
-			fmt.Println("Retrying with onmicrosoft.com suffix")
-			tld, _ := publicsuffix.EffectiveTLDPlusOne(domain)
-			parts := strings.Split(tld, ".")
-			if len(parts) > 1 {
-				domain = fmt.Sprintf("%s.onmicrosoft.com", parts[len(parts)-2])
-				continue
+			if err == nil {
+				bareDomains[strings.ToLower(bareDomain)] = true
 			}
 		}
 		retry = false
 	}
 
 	for bareDomain := range bareDomains {
-		if sess.InScope(bareDomain) {
-			sess.NewName(&et.DNSRequest{
-				Name:       bareDomain,
-				Domain:     domain,
-				Tag:        l.source.Name,
-				Source:     l.source.Name,
-				Confidence: 90,  // High confidence for discovered domains
-			})
+		if _, conf := e.Session.Scope().IsAssetInScope(&oamdomain.FQDN{Name: bareDomain}, 0); conf > 0 {
+			entity, err := e.Session.Cache().CreateAsset(&oamdomain.FQDN{Name: bareDomain})
+			if err == nil && entity != nil {
+				newEvent := &et.Event{
+					Name:       bareDomain,
+					Entity:     entity,
+					Dispatcher: e.Dispatcher,
+					Session:    e.Session,
+				}
+				if err := newEvent.Dispatcher.DispatchEvent(newEvent); err != nil {
+					return err
+				}
+			}
 		}
 	}
-
 	return nil
 }
 
+// Response represents the XML response structure
 type Response struct {
 	XMLName xml.Name `xml:"Envelope"`
 	Body    struct {
@@ -125,6 +131,7 @@ type Response struct {
 	} `xml:"Body"`
 }
 
+// postSOAP sends the SOAP request to the specified URL
 func postSOAP(ctx context.Context, url, envelope string) (*http.Response, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	request, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBufferString(envelope))
