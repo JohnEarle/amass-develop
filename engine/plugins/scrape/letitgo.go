@@ -73,31 +73,33 @@ func (l *letitgo) process(e *et.Event, assets []*dbt.Entity, source *et.Source) 
 }
 
 // Query performs the scraping operation
-func (l *letitgo) query(e *et.Event, name string, source *et.Source) error {
+func (l *letitgo) query(e *et.Event, name string, source *et.Source) ([]*dbt.Entity, error) {
 	if e == nil || e.Session == nil {
-		return fmt.Errorf("invalid event or session")
+		return nil, fmt.Errorf("invalid event or session")
 	}
 
 	l.rlimit.Take() // Rate limiting
 
-	bareDomains := make(map[string]bool)
+	subs := stringset.New()  // Use stringset to collect domains
+	defer subs.Close()
+
 	retry := true
 	for retry {
 		soapEnvelope := fmt.Sprintf(`<?xml version="1.0"?>
 			<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-			<soap:Body><Domain>%s</Domain></soap:Body></soap:Envelope>`, e.Name)
+			<soap:Body><Domain>%s</Domain></soap:Body></soap:Envelope>`, name)
 
 		url := "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc"
 		resp, err := postSOAP(context.TODO(), url, soapEnvelope)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		var parsed Response
 		err = xml.NewDecoder(resp.Body).Decode(&parsed)
 		resp.Body.Close()
 		if err != nil {
-			return fmt.Errorf("failed to parse XML: %v", err)
+			return nil, fmt.Errorf("failed to parse XML: %v", err)
 		}
 
 		for _, d := range parsed.Body.GetFederationInformationResponseMessage.Response.Domains.Domain {
@@ -106,29 +108,14 @@ func (l *letitgo) query(e *et.Event, name string, source *et.Source) error {
 			}
 			bareDomain, err := publicsuffix.EffectiveTLDPlusOne(d)
 			if err == nil {
-				bareDomains[strings.ToLower(bareDomain)] = true
+				subs.Insert(strings.ToLower(bareDomain))  // Use stringset to deduplicate
 			}
 		}
 		retry = false
 	}
 
-	for bareDomain := range bareDomains {
-		if _, conf := e.Session.Scope().IsAssetInScope(&oamdomain.FQDN{Name: bareDomain}, 0); conf > 0 {
-			entity, err := e.Session.Cache().CreateAsset(&oamdomain.FQDN{Name: bareDomain})
-			if err == nil && entity != nil {
-				newEvent := &et.Event{
-					Name:       bareDomain,
-					Entity:     entity,
-					Dispatcher: e.Dispatcher,
-					Session:    e.Session,
-				}
-				if err := newEvent.Dispatcher.DispatchEvent(newEvent); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return l.store(e, bareDomains, l.source), nil
+	// Directly convert set to slice
+	return l.store(e, subs.Slice(), l.source), nil
 }
 
 func (l *letitgo) store(e *et.Event, names []string, src *et.Source) []*dbt.Entity {
