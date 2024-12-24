@@ -52,7 +52,7 @@ func (l *letitgo) Start(r et.Registry) error {
 		Priority:     5,
 		MaxInstances: 5,
 		EventType:    oam.FQDN,
-		Callback:     l.query,
+		Callback:     l.check,
 	})
 	if err != nil {
 		return err
@@ -67,7 +67,7 @@ func (l *letitgo) Stop() {
 	l.log.Info("LetItGo Plugin stopped")
 }
 
-func (l *letitgo) process(e *et.Event, entities []*dbt.Entity, source *et.Source) {
+func (l *letitgo) process(e *et.Event, assets []*dbt.Entity, source *et.Source) {
 	support.ProcessFQDNsWithSource(e, assets, l.source)
 }
 
