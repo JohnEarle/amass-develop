@@ -128,7 +128,11 @@ func (l *letitgo) query(e *et.Event, name string, source *et.Source) error {
 			}
 		}
 	}
-	return l.store(e, subs.Slice())
+	return l.store(e, bareDomains, l.source), nil
+}
+
+func (l *letitgo) store(e *et.Event, names []string, src *et.Source) []*dbt.Entity {
+    return support.StoreFQDNsWithSource(e.Session, names, l.source, l.name, l.name+"-Handler")
 }
 
 // Response represents the XML response structure
