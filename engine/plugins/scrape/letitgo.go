@@ -152,7 +152,7 @@ func (l *letitgo) check(e *et.Event) error {
 
 	var names []*dbt.Entity
 	if support.AssetMonitoredWithinTTL(e.Session, e.Entity, l.source, since) {
-		names = append(names, l.lookup(e, fqdn.Name, l.source, since)...)
+		names = append(names, l.lookup(e, fqdn.Name, since)...)
 	} else {
 		names = append(names, l.query(e, fqdn.Name, l.source)...)
 		support.MarkAssetMonitored(e.Session, e.Entity, l.source)
