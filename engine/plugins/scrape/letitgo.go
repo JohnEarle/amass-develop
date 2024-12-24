@@ -51,7 +51,7 @@ func (l *letitgo) Start(r et.Registry) error {
 		Name:         l.name + "-Handler",
 		Priority:     5,
 		MaxInstances: 5,
-		EventType:    oamdomain.FQDN,
+		EventType:    oam.FQDN,
 		Callback:     l.query,
 	})
 	log.Info("LetItGo Plugin started")
