@@ -54,8 +54,7 @@ func (l *letitgo) Start(r et.Registry) error {
 		MaxInstances: 5,
 		EventType:    oam.FQDN,
 		Callback:     l.check,
-	})
-	if err != nil {
+	}); err != nil {
 		return err
 	}
 	l.log.Info("LetItGo Plugin started")
