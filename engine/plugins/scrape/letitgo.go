@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
+	"log/slog"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -15,6 +17,8 @@ import (
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/weppos/publicsuffix-go/net/publicsuffix"
 	"go.uber.org/ratelimit"
+	"github.com/owasp-amass/open-asset-model/domain"
+	"github.com/owasp-amass/amass/v4/engine/plugins/support"
 )
 
 type letitgo struct {
@@ -60,7 +64,7 @@ func (l *letitgo) Stop() {
 }
 
 // Query performs the scraping operation
-func (l *letitgo) query(e *et.Event) error {
+func (l *letitgo) query(e *et.Event, name string, source *et.Source) error {
 	if e == nil || e.Session == nil {
 		return fmt.Errorf("invalid event or session")
 	}
