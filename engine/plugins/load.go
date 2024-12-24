@@ -12,12 +12,12 @@ import (
 	"github.com/owasp-amass/amass/v4/engine/plugins/expansion"
 	"github.com/owasp-amass/amass/v4/engine/plugins/horizontals"
 	"github.com/owasp-amass/amass/v4/engine/plugins/rdap"
-	"github.com/owasp-amass/amass/v4/engine/plugins/scrape"
+	"github.com/JohnEarle/amass-develop/engine/plugins/scrape"
 	hp "github.com/owasp-amass/amass/v4/engine/plugins/service_discovery/http_probes"
 	"github.com/owasp-amass/amass/v4/engine/plugins/whois"
 	"github.com/owasp-amass/amass/v4/engine/plugins/whois/bgptools"
 	et "github.com/owasp-amass/amass/v4/engine/types"
-	"github.com/owasp-amass/amass/v4/engine/plugins/scrape/letitgo"
+	
 	
 )
 
