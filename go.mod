@@ -1,4 +1,4 @@
-module github.com/owasp-amass/amass/v4
+module github.com/JohnEarle/amass-develop/v4
 
 go 1.23.1
 
