@@ -54,6 +54,7 @@ var pluginNewFuncs = []func() et.Plugin{
 	scrape.NewIPVerse,
 	scrape.NewRapidDNS,
 	scrape.NewSiteDossier,
+	scrape.letitgo,
 	whois.NewWHOIS,
 	NewIPNetblock,
 	NewJARMFingerprints,
