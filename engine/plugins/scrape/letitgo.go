@@ -85,9 +85,24 @@ func (l *letitgo) query(e *et.Event, name string, source *et.Source) ([]*dbt.Ent
 	subs := stringset.New()
 	defer subs.Close()
 
-	soapEnvelope := fmt.Sprintf(`<?xml version="1.0"?>
-		<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-		<soap:Body><Domain>%s</Domain></soap:Body></soap:Envelope>`, name)
+	request := []byte(strings.TrimSpace(fmt.Sprintf(`<?xml version="1.0" encoding="utf-8"?>
+	<soap:Envelope xmlns:exm="http://schemas.microsoft.com/exchange/services/2006/messages" xmlns:ext="http://schemas.microsoft.com/exchange/services/2006/types" xmlns:a="http://www.w3.org/2005/08/addressing" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<soap:Header>
+	<a:Action soap:mustUnderstand="1">http://schemas.microsoft.com/exchange/2010/Autodiscover/Autodiscover/GetFederationInformation</a:Action>
+	<a:To soap:mustUnderstand="1">https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc</a:To>
+	<a:ReplyTo>
+		<a:Address>http://www.w3.org/2005/08/addressing/anonymous</a:Address>
+	</a:ReplyTo>
+	</soap:Header>
+	<soap:Body>
+		<GetFederationInformationRequestMessage xmlns="http://schemas.microsoft.com/exchange/2010/Autodiscover">
+			<Request>
+				<Domain>%s</Domain>
+			</Request>
+		</GetFederationInformationRequestMessage>
+	</soap:Body>
+	</soap:Envelope>`, name)))
+
 
 	url := "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc"
 	l.log.Info("Sending SOAP Request", "envelope", soapEnvelope)
