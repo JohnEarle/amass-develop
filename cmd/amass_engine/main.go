@@ -7,6 +7,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"os"
@@ -53,19 +54,14 @@ func main() {
 }
 
 func selectLogger(dir string) *slog.Logger {
-	if dir != "" {
-		return setupFileLogger(dir)
-	}
-	if l := setupSyslogLogger(); l != nil {
-		return l
-	}
-	if l := setupFileLogger(""); l != nil {
-		return l
-	}
-	return slog.New(slog.NewTextHandler(os.Stdout, nil))
+	fileWriter := setupFileLogger(dir)
+	consoleWriter := os.Stdout
+
+	multiWriter := io.MultiWriter(consoleWriter, fileWriter)
+	return slog.New(slog.NewJSONHandler(multiWriter, nil))
 }
 
-func setupFileLogger(dir string) *slog.Logger {
+func setupFileLogger(dir string) io.Writer {
 	if dir != "" {
 		if err := os.MkdirAll(dir, 0640); err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to create the log directory: %v", err)
@@ -76,10 +72,10 @@ func setupFileLogger(dir string) *slog.Logger {
 	f, err := os.OpenFile(filepath.Join(dir, filename), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to open the log file: %v", err)
-		return nil
+		return os.Stdout // Fallback to stdout if file cannot be opened
 	}
 
-	return slog.New(slog.NewJSONHandler(f, nil))
+	return f
 }
 
 func setupSyslogLogger() *slog.Logger {
