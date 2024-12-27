@@ -169,12 +169,12 @@ func (l *letitgo) store(e *et.Event, names []string, src *et.Source) []*dbt.Enti
 			continue
 		}
 		edge, err := e.Session.Cache().CreateEdge(&dbt.Edge{
-			Relation:   &relation.SimpleRelation{Name: "associated_with"},
+			Relation:   &relation.SimpleRelation{Name: "node"},
 			FromEntity: e.Entity,
 			ToEntity:   entity,
 		})
 		if err != nil {
-			e.Session.Log().Error("Failed to create edge", "error", err)
+			l.log.Error("Failed to create edge", "error", err)
 			continue
 		}
 		if edge == nil {
