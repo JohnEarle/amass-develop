@@ -47,14 +47,8 @@ func (l *letitgo) Name() string {
 
 // Start registers the plugin with the Amass engine
 func (l *letitgo) Start(r et.Registry) error {
-	consoleHandler := slog.NewTextHandler(os.Stdout, nil)
 	
-	// Get the existing handler (probably logs to a file)
-	fileHandler := r.Log().Handler()  
-
-	// Combine handlers for dual logging (stdout and file)
-	l.log = slog.New(slog.MultiHandler(consoleHandler, fileHandler)).WithGroup("plugin").With("name", l.name)
-
+	l.log = slog.New(slog.NewTextHandler(os.Stdout, nil)).WithGroup("plugin").With("name", l.name)
 	
 	if err := r.RegisterHandler(&et.Handler{
 		Plugin:       l,
