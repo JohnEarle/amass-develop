@@ -90,6 +90,7 @@ func (l *letitgo) query(e *et.Event, name string, source *et.Source) ([]*dbt.Ent
 		<soap:Body><Domain>%s</Domain></soap:Body></soap:Envelope>`, name)
 
 	url := "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc"
+	l.log.Info("Sending SOAP Request: ", envelope)
 	resp, err := postSOAP(context.TODO(), url, soapEnvelope)
 	if err != nil {
 		return nil, err
@@ -108,7 +109,7 @@ func (l *letitgo) query(e *et.Event, name string, source *et.Source) ([]*dbt.Ent
 		}
 		bareDomain, err := publicsuffix.EffectiveTLDPlusOne(d)
 		if err == nil {
-			l.log.Info(baredomain)
+			l.log.Info(bareDomain)
 			subs.Insert(strings.ToLower(bareDomain))
 		}
 	}
