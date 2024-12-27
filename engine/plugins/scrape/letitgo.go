@@ -154,15 +154,33 @@ func (l *letitgo) store(e *et.Event, names []string, src *et.Source) []*dbt.Enti
 
 	// Create edges between the event entity and the new FQDNs
 	for _, entity := range entities {
-		if edge, err := e.Session.Cache().CreateEdge(&dbt.Edge{
+		if entity == nil {
+			e.Session.Log().Error("Entity is nil")
+			continue
+		}
+		if e.Entity == nil {
+			e.Session.Log().Error("Event entity is nil")
+			continue
+		}
+		edge, err := e.Session.Cache().CreateEdge(&dbt.Edge{
 			Relation:   &relation.SimpleRelation{Name: "associated_with"},
 			FromEntity: e.Entity,
 			ToEntity:   entity,
-		}); err == nil && edge != nil {
-			_, _ = e.Session.Cache().CreateEdgeProperty(edge, &property.SourceProperty{
-				Source:     l.source.Name,
-				Confidence: l.source.Confidence,
-			})
+		})
+		if err != nil {
+			e.Session.Log().Error("Failed to create edge", "error", err)
+			continue
+		}
+		if edge == nil {
+			e.Session.Log().Error("Edge is nil")
+			continue
+		}
+		_, err = e.Session.Cache().CreateEdgeProperty(edge, &property.SourceProperty{
+			Source:     l.source.Name,
+			Confidence: l.source.Confidence,
+		})
+		if err != nil {
+			e.Session.Log().Error("Failed to create edge property", "error", err)
 		}
 	}
 
