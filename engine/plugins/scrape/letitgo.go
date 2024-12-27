@@ -19,6 +19,7 @@ import (
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
 	"github.com/owasp-amass/open-asset-model/property"
+	"github.com/owasp-amass/open-asset-model/relation"
 	"github.com/weppos/publicsuffix-go/net/publicsuffix"
 	"go.uber.org/ratelimit"
 )
@@ -141,6 +142,13 @@ func (l *letitgo) store(e *et.Event, names []string, src *et.Source) []*dbt.Enti
 	l.log.Info("Storing domains", "names", names)
 	var results []*dbt.Entity
 
+	// Create the original query domain asset
+	originalDomain, err := e.Session.Cache().CreateAsset(&domain.FQDN{Name: e.Entity.Asset.(*domain.FQDN).Name})
+	if err != nil || originalDomain == nil {
+		e.Session.Log().Error("Failed to create original domain asset", slog.Group("plugin", "name", l.name, "handler", l.name+"-Handler"))
+		return results
+	}
+
 	for _, name := range names {
 		if a, err := e.Session.Cache().CreateAsset(&domain.FQDN{Name: name}); err == nil && a != nil {
 			results = append(results, a)
@@ -148,6 +156,15 @@ func (l *letitgo) store(e *et.Event, names []string, src *et.Source) []*dbt.Enti
 				Source:     src.Name,
 				Confidence: src.Confidence,
 			})
+			// Create an edge record to link the discovered domain with the original query domain
+			_, err := e.Session.Cache().CreateEdge(&dbt.Edge{
+				Relation:   &relation.SimpleRelation{Name: "discovered_from"},
+				FromEntity: originalDomain,
+				ToEntity:   a,
+			})
+			if err != nil {
+				e.Session.Log().Error("Failed to create edge record", slog.Group("plugin", "name", l.name, "handler", l.name+"-Handler"))
+			}
 			// Update the scope with the new domain
 			if e.Session.Scope().AddDomain(name) {
 				l.log.Info("Domain added to scope", "domain", name)
