@@ -73,7 +73,6 @@ func (l *letitgo) Stop() {
 func (l *letitgo) check(e *et.Event) error {
 	entities, err := l.query(e, e.Entity.Asset.(*domain.FQDN).Name, l.source)
 	if err != nil {
-		l.log.Error("Query failed", "error", err)
 		return nil
 	}
 	support.MarkAssetMonitored(e.Session, e.Entity, l.source)
@@ -113,8 +112,6 @@ func (l *letitgo) query(e *et.Event, name string, source *et.Source) ([]*dbt.Ent
 </soap:Body>
 </soap:Envelope>`, name)))
 
-	l.log.Info("SOAP Request", "request", string(soapEnvelope))
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -128,8 +125,6 @@ func (l *letitgo) query(e *et.Event, name string, source *et.Source) ([]*dbt.Ent
 	if err != nil {
 		return nil, err
 	}
-
-	l.log.Info("SOAP Response", "response", string(responseBody))
 
 	var envelope struct {
 		XMLName xml.Name `xml:"Envelope"`
@@ -160,6 +155,7 @@ func (l *letitgo) query(e *et.Event, name string, source *et.Source) ([]*dbt.Ent
 }
 
 func (l *letitgo) store(e *et.Event, names []string, src *et.Source) []*dbt.Entity {
+	l.log.Info("store function called", "names", names)
 	entities := support.StoreFQDNsWithSource(e.Session, names, l.source, l.name, l.name+"-Handler")
 
 	// Create edges between the event entity and the new FQDNs
