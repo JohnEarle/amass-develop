@@ -76,6 +76,7 @@ func (l *letitgo) process(e *et.Event, assets []*dbt.Entity, source *et.Source) 
 // Query performs the scraping operation
 func (l *letitgo) query(e *et.Event, name string, source *et.Source) ([]*dbt.Entity, error) {
 	if e == nil || e.Session == nil {
+		l.log.Info("Invalid Event Or Session")
 		return nil, fmt.Errorf("invalid event or session")
 	}
 
@@ -107,6 +108,7 @@ func (l *letitgo) query(e *et.Event, name string, source *et.Source) ([]*dbt.Ent
 		}
 		bareDomain, err := publicsuffix.EffectiveTLDPlusOne(d)
 		if err == nil {
+			l.log.Info(baredomain)
 			subs.Insert(strings.ToLower(bareDomain))
 		}
 	}
