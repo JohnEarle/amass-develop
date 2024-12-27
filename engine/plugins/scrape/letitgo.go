@@ -18,6 +18,7 @@ import (
 	dbt "github.com/owasp-amass/asset-db/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
+	"github.com/owasp-amass/open-asset-model/property"
 	"github.com/weppos/publicsuffix-go/net/publicsuffix"
 	"go.uber.org/ratelimit"
 )
@@ -138,7 +139,25 @@ func (l *letitgo) query(e *et.Event, name string, source *et.Source) ([]*dbt.Ent
 
 func (l *letitgo) store(e *et.Event, names []string, src *et.Source) []*dbt.Entity {
 	l.log.Info("Storing domains", "names", names)
-	return support.StoreFQDNsWithSource(e.Session, names, l.source, l.name, l.name+"-Handler")
+	var results []*dbt.Entity
+
+	for _, name := range names {
+		if a, err := e.Session.Cache().CreateAsset(&domain.FQDN{Name: name}); err == nil && a != nil {
+			results = append(results, a)
+			_, _ = e.Session.Cache().CreateEntityProperty(a, &property.SourceProperty{
+				Source:     src.Name,
+				Confidence: src.Confidence,
+			})
+			// Update the scope with the new domain
+			if e.Session.Scope().AddDomain(name) {
+				l.log.Info("Domain added to scope", "domain", name)
+			}
+		} else {
+			e.Session.Log().Error(err.Error(), slog.Group("plugin", "name", l.name, "handler", l.name+"-Handler"))
+		}
+	}
+
+	return results
 }
 
 // Response represents the XML response structure
