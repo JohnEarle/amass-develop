@@ -90,7 +90,7 @@ func (l *letitgo) query(e *et.Event, name string, source *et.Source) ([]*dbt.Ent
 		<soap:Body><Domain>%s</Domain></soap:Body></soap:Envelope>`, name)
 
 	url := "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc"
-	l.log.Info("Sending SOAP Request: ", soapEnvelope)
+	l.log.Info("Sending SOAP Request", "envelope", soapEnvelope)
 	resp, err := postSOAP(context.TODO(), url, soapEnvelope)
 	if err != nil {
 		return nil, err
