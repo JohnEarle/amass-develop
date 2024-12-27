@@ -10,7 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	
+	"os"
+
 	"github.com/caffix/stringset"
 	et "github.com/owasp-amass/amass/v4/engine/types"
 	dbt "github.com/owasp-amass/asset-db/types"
