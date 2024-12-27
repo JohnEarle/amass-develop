@@ -181,6 +181,10 @@ func (l *letitgo) store(e *et.Event, names []string, src *et.Source) []*dbt.Enti
 			e.Session.Log().Error("Edge is nil")
 			continue
 		}
+
+		// Log the edge details
+		e.Session.Log().Info("Edge created", "from", e.Entity.ID, "to", entity.ID, "relation", "associated_with")
+
 		_, err = e.Session.Cache().CreateEdgeProperty(edge, &property.SourceProperty{
 			Source:     l.source.Name,
 			Confidence: l.source.Confidence,
