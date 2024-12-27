@@ -19,7 +19,6 @@ import (
 	"github.com/owasp-amass/open-asset-model/domain"
 	"github.com/owasp-amass/open-asset-model/property"
 	"github.com/owasp-amass/open-asset-model/relation"
-	"github.com/weppos/publicsuffix-go/net/publicsuffix"
 	"go.uber.org/ratelimit"
 )
 
@@ -113,29 +112,34 @@ func (l *letitgo) query(e *et.Event, name string, source *et.Source) ([]*dbt.Ent
 	</soap:Body>
 	</soap:Envelope>`, name)))
 
-	url := "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc"
-	l.log.Info("Sending SOAP Request", "envelope", soapEnvelope)
-	resp, err := postSOAP(context.TODO(), url, soapEnvelope)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	resp, err := postSOAP(ctx, "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc", soapEnvelope)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	var parsed Response
-	err = xml.NewDecoder(resp.Body).Decode(&parsed)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse XML: %v", err)
+	var envelope struct {
+		XMLName xml.Name `xml:"Envelope"`
+		Body    struct {
+			GetFederationInformationResponseMessage struct {
+				Response struct {
+					Domains struct {
+						Domain []string `xml:"Domain"`
+					} `xml:"Domains"`
+				} `xml:"Response"`
+			} `xml:"GetFederationInformationResponseMessage"`
+		} `xml:"Body"`
 	}
 
-	for _, d := range parsed.Body.GetFederationInformationResponseMessage.Response.Domains.Domain {
-		if strings.HasSuffix(d, "onmicrosoft.com") {
-			continue
-		}
-		bareDomain, err := publicsuffix.EffectiveTLDPlusOne(d)
-		if err == nil {
-			l.log.Info(bareDomain)
-			subs.Insert(strings.ToLower(bareDomain))
-		}
+	if err := xml.NewDecoder(resp.Body).Decode(&envelope); err != nil {
+		return nil, err
+	}
+
+	for _, domain := range envelope.Body.GetFederationInformationResponseMessage.Response.Domains.Domain {
+		subs.Insert(strings.ToLower(domain))
 	}
 
 	if subs.Len() == 0 {
@@ -146,72 +150,27 @@ func (l *letitgo) query(e *et.Event, name string, source *et.Source) ([]*dbt.Ent
 }
 
 func (l *letitgo) store(e *et.Event, names []string, src *et.Source) []*dbt.Entity {
-	l.log.Info("Storing domains", "names", names)
-	var results []*dbt.Entity
+	entities := support.StoreFQDNsWithSource(e.Session, names, l.source, l.name, l.name+"-Handler")
 
-	// Create the original query domain asset
-	originalDomain, err := e.Session.Cache().CreateAsset(&domain.FQDN{Name: e.Entity.Asset.(*domain.FQDN).Name})
-	if err != nil || originalDomain == nil {
-		e.Session.Log().Error("Failed to create original domain asset", slog.Group("plugin", "name", l.name, "handler", l.name+"-Handler"))
-		return results
-	}
-
-	for _, name := range names {
-		// Check if the domain already exists
-		existingAssets, err := e.Session.Cache().FindEntitiesByContent(&domain.FQDN{Name: name}, time.Time{})
-		var a *dbt.Entity
-		if err == nil && len(existingAssets) > 0 {
-			a = existingAssets[0]
-		} else {
-			// Create a new domain asset if it does not exist
-			a, err = e.Session.Cache().CreateAsset(&domain.FQDN{Name: name})
-			if err != nil || a == nil {
-				e.Session.Log().Error(err.Error(), slog.Group("plugin", "name", l.name, "handler", l.name+"-Handler"))
-				continue
-			}
-			_, _ = e.Session.Cache().CreateEntityProperty(a, &property.SourceProperty{
-				Source:     src.Name,
-				Confidence: src.Confidence,
+	// Create edges between the event entity and the new FQDNs
+	for _, entity := range entities {
+		if edge, err := e.Session.Cache().CreateEdge(&dbt.Edge{
+			Relation:   &relation.SimpleRelation{Name: "associated_with"},
+			FromEntity: e.Entity,
+			ToEntity:   entity,
+		}); err == nil && edge != nil {
+			_, _ = e.Session.Cache().CreateEdgeProperty(edge, &property.SourceProperty{
+				Source:     l.source.Name,
+				Confidence: l.source.Confidence,
 			})
 		}
-
-		results = append(results, a)
-
-		// Update the scope with the new domain
-		if e.Session.Scope().AddDomain(name) {
-			l.log.Info("Domain added to scope", "domain", name)
-		}
-
-		// Create an edge record to link the discovered domain with the original query domain
-		_, err = e.Session.Cache().CreateEdge(&dbt.Edge{
-			Relation:   &relation.SimpleRelation{Name: "discovered_from"},
-			FromEntity: originalDomain,
-			ToEntity:   a,
-		})
-		if err != nil {
-			e.Session.Log().Error("Failed to create edge record", slog.Group("plugin", "name", l.name, "handler", l.name+"-Handler"))
-		}
 	}
 
-	return results
+	return entities
 }
 
 func (l *letitgo) process(e *et.Event, assets []*dbt.Entity, source *et.Source) {
 	support.ProcessFQDNsWithSource(e, assets, l.source)
-}
-
-// Response represents the XML response structure
-type Response struct {
-	XMLName xml.Name `xml:"Envelope"`
-	Body    struct {
-		GetFederationInformationResponseMessage struct {
-			Response struct {
-				Domains struct {
-					Domain []string `xml:"Domain"`
-				} `xml:"Domains"`
-			} `xml:"Response"`
-		} `xml:"GetFederationInformationResponseMessage"`
-	} `xml:"Body"`
 }
 
 func (l *letitgo) lookup(e *et.Event, name string, since time.Time) []*dbt.Entity {
