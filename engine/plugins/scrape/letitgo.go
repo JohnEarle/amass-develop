@@ -197,7 +197,7 @@ func (l *letitgo) lookup(e *et.Event, name string, since time.Time) []*dbt.Entit
 
 // postSOAP sends the SOAP request to the specified URL
 func postSOAP(ctx context.Context, url string, envelope []byte) (*http.Response, error) {
-	request, err := http.NewRequest("POST", url, bytes.NewReader(request))
+	request, err := http.NewRequest("POST", url, bytes.NewReader(envelope))
 	tr := &http.Transport{
 		DisableCompression: true,
 	}
