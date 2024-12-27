@@ -36,6 +36,7 @@ func NewLetItGo() et.Plugin {
 		rlimit: ratelimit.New(2, ratelimit.WithoutSlack),
 		source: &et.Source{
 			Name: "LetItGo",
+			Confidence: 80,
 		},
 	}
 }
