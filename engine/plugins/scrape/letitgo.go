@@ -13,6 +13,7 @@ import (
 	
 	"github.com/caffix/stringset"
 	et "github.com/owasp-amass/amass/v4/engine/types"
+	oamdomain "github.com/owasp-amass/open-asset-model/domain"
 	dbt "github.com/owasp-amass/asset-db/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/weppos/publicsuffix-go/net/publicsuffix"
@@ -59,12 +60,11 @@ func (l *letitgo) Start(r et.Registry) error {
 		return err
 	}
 	l.log.Info("LetItGo Plugin started")
-	return nil // Ensure proper return
+	return nil
 }
 
 // Stop implements the Stop method required by et.Plugin
 func (l *letitgo) Stop() {
-	// Cleanup if necessary
 	l.log.Info("LetItGo Plugin stopped")
 }
 
@@ -78,43 +78,42 @@ func (l *letitgo) query(e *et.Event, name string, source *et.Source) ([]*dbt.Ent
 		return nil, fmt.Errorf("invalid event or session")
 	}
 
-	l.rlimit.Take() // Rate limiting
+	l.rlimit.Take()
 
-	subs := stringset.New()  // Use stringset to collect domains
+	subs := stringset.New()
 	defer subs.Close()
 
-	retry := true
-	for retry {
-		soapEnvelope := fmt.Sprintf(`<?xml version="1.0"?>
-			<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-			<soap:Body><Domain>%s</Domain></soap:Body></soap:Envelope>`, name)
+	soapEnvelope := fmt.Sprintf(`<?xml version="1.0"?>
+		<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+		<soap:Body><Domain>%s</Domain></soap:Body></soap:Envelope>`, name)
 
-		url := "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc"
-		resp, err := postSOAP(context.TODO(), url, soapEnvelope)
-		if err != nil {
-			return nil, err
-		}
+	url := "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc"
+	resp, err := postSOAP(context.TODO(), url, soapEnvelope)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
 
-		var parsed Response
-		err = xml.NewDecoder(resp.Body).Decode(&parsed)
-		resp.Body.Close()
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse XML: %v", err)
-		}
-
-		for _, d := range parsed.Body.GetFederationInformationResponseMessage.Response.Domains.Domain {
-			if strings.HasSuffix(d, "onmicrosoft.com") {
-				continue
-			}
-			bareDomain, err := publicsuffix.EffectiveTLDPlusOne(d)
-			if err == nil {
-				subs.Insert(strings.ToLower(bareDomain))  // Use stringset to deduplicate
-			}
-		}
-		retry = false
+	var parsed Response
+	err = xml.NewDecoder(resp.Body).Decode(&parsed)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse XML: %v", err)
 	}
 
-	// Directly convert set to slice
+	for _, d := range parsed.Body.GetFederationInformationResponseMessage.Response.Domains.Domain {
+		if strings.HasSuffix(d, "onmicrosoft.com") {
+			continue
+		}
+		bareDomain, err := publicsuffix.EffectiveTLDPlusOne(d)
+		if err == nil {
+			subs.Insert(strings.ToLower(bareDomain))
+		}
+	}
+
+	if subs.Len() == 0 {
+		return nil, fmt.Errorf("no valid domains found")
+	}
+
 	return l.store(e, subs.Slice(), l.source), nil
 }
 
@@ -148,7 +147,6 @@ func (l *letitgo) check(e *et.Event) error {
 		return nil
 	}
 
-
 	since, err := support.TTLStartTime(e.Session.Config(), string(oam.FQDN), string(oam.FQDN), l.name)
 	if err != nil {
 		return err
@@ -158,7 +156,12 @@ func (l *letitgo) check(e *et.Event) error {
 	if support.AssetMonitoredWithinTTL(e.Session, e.Entity, l.source, since) {
 		names = append(names, l.lookup(e, fqdn.Name, since)...)
 	} else {
-		names = append(names, l.query(e, fqdn.Name, l.source)...)
+		entities, err := l.query(e, fqdn.Name, l.source)
+		if err != nil {
+			l.log.Error("Query failed", "error", err)
+			return nil
+		}
+		names = append(names, entities...)
 		support.MarkAssetMonitored(e.Session, e.Entity, l.source)
 	}
 
@@ -167,6 +170,7 @@ func (l *letitgo) check(e *et.Event) error {
 	}
 	return nil
 }
+
 
 func (l *letitgo) lookup(e *et.Event, name string, since time.Time) []*dbt.Entity {
 	return support.SourceToAssetsWithinTTL(e.Session, name, string(oam.FQDN), l.source, since)
