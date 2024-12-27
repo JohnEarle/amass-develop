@@ -16,3 +16,4 @@
 # Jetbrains IDE configuration files
 .idea
 /.vs
+.DS_Store
