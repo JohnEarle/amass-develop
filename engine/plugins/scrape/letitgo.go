@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -50,7 +49,6 @@ func (l *letitgo) Name() string {
 
 // Start registers the plugin with the Amass engine
 func (l *letitgo) Start(r et.Registry) error {
-
 	l.log = slog.New(slog.NewTextHandler(os.Stdout, nil)).WithGroup("plugin").With("name", l.name)
 
 	if err := r.RegisterHandler(&et.Handler{
@@ -72,11 +70,20 @@ func (l *letitgo) Stop() {
 	l.log.Info("LetItGo Plugin stopped")
 }
 
-func (l *letitgo) process(e *et.Event, assets []*dbt.Entity, source *et.Source) {
-	support.ProcessFQDNsWithSource(e, assets, l.source)
+func (l *letitgo) check(e *et.Event) error {
+	entities, err := l.query(e, e.Entity.Asset.(*domain.FQDN).Name, l.source)
+	if err != nil {
+		l.log.Error("Query failed", "error", err)
+		return nil
+	}
+	support.MarkAssetMonitored(e.Session, e.Entity, l.source)
+
+	if len(entities) > 0 {
+		l.process(e, entities, l.source)
+	}
+	return nil
 }
 
-// Query performs the scraping operation
 func (l *letitgo) query(e *et.Event, name string, source *et.Source) ([]*dbt.Entity, error) {
 	if e == nil || e.Session == nil {
 		l.log.Info("Invalid Event Or Session")
@@ -150,31 +157,47 @@ func (l *letitgo) store(e *et.Event, names []string, src *et.Source) []*dbt.Enti
 	}
 
 	for _, name := range names {
-		if a, err := e.Session.Cache().CreateAsset(&domain.FQDN{Name: name}); err == nil && a != nil {
-			results = append(results, a)
+		// Check if the domain already exists
+		existingAssets, err := e.Session.Cache().FindEntitiesByContent(&domain.FQDN{Name: name}, time.Time{})
+		var a *dbt.Entity
+		if err == nil && len(existingAssets) > 0 {
+			a = existingAssets[0]
+		} else {
+			// Create a new domain asset if it does not exist
+			a, err = e.Session.Cache().CreateAsset(&domain.FQDN{Name: name})
+			if err != nil || a == nil {
+				e.Session.Log().Error(err.Error(), slog.Group("plugin", "name", l.name, "handler", l.name+"-Handler"))
+				continue
+			}
 			_, _ = e.Session.Cache().CreateEntityProperty(a, &property.SourceProperty{
 				Source:     src.Name,
 				Confidence: src.Confidence,
 			})
-			// Create an edge record to link the discovered domain with the original query domain
-			_, err := e.Session.Cache().CreateEdge(&dbt.Edge{
-				Relation:   &relation.SimpleRelation{Name: "discovered_from"},
-				FromEntity: originalDomain,
-				ToEntity:   a,
-			})
-			if err != nil {
-				e.Session.Log().Error("Failed to create edge record", slog.Group("plugin", "name", l.name, "handler", l.name+"-Handler"))
-			}
-			// Update the scope with the new domain
-			if e.Session.Scope().AddDomain(name) {
-				l.log.Info("Domain added to scope", "domain", name)
-			}
-		} else {
-			e.Session.Log().Error(err.Error(), slog.Group("plugin", "name", l.name, "handler", l.name+"-Handler"))
+		}
+
+		results = append(results, a)
+
+		// Update the scope with the new domain
+		if e.Session.Scope().AddDomain(name) {
+			l.log.Info("Domain added to scope", "domain", name)
+		}
+
+		// Create an edge record to link the discovered domain with the original query domain
+		_, err = e.Session.Cache().CreateEdge(&dbt.Edge{
+			Relation:   &relation.SimpleRelation{Name: "discovered_from"},
+			FromEntity: originalDomain,
+			ToEntity:   a,
+		})
+		if err != nil {
+			e.Session.Log().Error("Failed to create edge record", slog.Group("plugin", "name", l.name, "handler", l.name+"-Handler"))
 		}
 	}
 
 	return results
+}
+
+func (l *letitgo) process(e *et.Event, assets []*dbt.Entity, source *et.Source) {
+	support.ProcessFQDNsWithSource(e, assets, l.source)
 }
 
 // Response represents the XML response structure
@@ -189,42 +212,6 @@ type Response struct {
 			} `xml:"Response"`
 		} `xml:"GetFederationInformationResponseMessage"`
 	} `xml:"Body"`
-}
-
-func (l *letitgo) check(e *et.Event) error {
-	fqdn, ok := e.Entity.Asset.(*domain.FQDN)
-	if !ok {
-		return errors.New("failed to extract the FQDN asset")
-	}
-
-	if a, conf := e.Session.Scope().IsAssetInScope(fqdn, 0); conf == 0 || a == nil {
-		return nil
-	} else if f, ok := a.(*domain.FQDN); !ok || f == nil || !strings.EqualFold(fqdn.Name, f.Name) {
-		return nil
-	}
-
-	since, err := support.TTLStartTime(e.Session.Config(), string(oam.FQDN), string(oam.FQDN), l.name)
-	if err != nil {
-		return err
-	}
-
-	var names []*dbt.Entity
-	if support.AssetMonitoredWithinTTL(e.Session, e.Entity, l.source, since) {
-		names = append(names, l.lookup(e, fqdn.Name, since)...)
-	} else {
-		entities, err := l.query(e, fqdn.Name, l.source)
-		if err != nil {
-			l.log.Error("Query failed", "error", err)
-			return nil
-		}
-		names = append(names, entities...)
-		support.MarkAssetMonitored(e.Session, e.Entity, l.source)
-	}
-
-	if len(names) > 0 {
-		l.process(e, names, l.source)
-	}
-	return nil
 }
 
 func (l *letitgo) lookup(e *et.Event, name string, since time.Time) []*dbt.Entity {
