@@ -63,18 +63,21 @@ func selectLogger(dir string) *slog.Logger {
 
 func setupFileLogger(dir string) io.Writer {
 	if dir != "" {
-		if err := os.MkdirAll(dir, 0640); err != nil {
+		if err := os.MkdirAll(dir, 0755); err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to create the log directory: %v", err)
+			return os.Stdout // Fallback to stdout if directory cannot be created
 		}
 	}
 
 	filename := fmt.Sprintf("amass_engine_%s.log", time.Now().Format("2006-01-02T15:04:05"))
-	f, err := os.OpenFile(filepath.Join(dir, filename), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	filePath := filepath.Join(dir, filename)
+	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to open the log file: %v", err)
 		return os.Stdout // Fallback to stdout if file cannot be opened
 	}
 
+	fmt.Fprintf(os.Stderr, "Logging to file: %s\n", filePath)
 	return f
 }
 
