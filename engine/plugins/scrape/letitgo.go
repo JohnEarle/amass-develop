@@ -13,7 +13,6 @@ import (
 	
 	"github.com/caffix/stringset"
 	et "github.com/owasp-amass/amass/v4/engine/types"
-	oamdomain "github.com/owasp-amass/open-asset-model/domain"
 	dbt "github.com/owasp-amass/asset-db/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/weppos/publicsuffix-go/net/publicsuffix"
