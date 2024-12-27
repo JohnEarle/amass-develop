@@ -4,22 +4,22 @@ import (
 	"bytes"
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"log/slog"
-	"errors"
 	"net/http"
+	"os"
 	"strings"
 	"time"
-	"os"
 
 	"github.com/caffix/stringset"
+	"github.com/owasp-amass/amass/v4/engine/plugins/support"
 	et "github.com/owasp-amass/amass/v4/engine/types"
 	dbt "github.com/owasp-amass/asset-db/types"
 	oam "github.com/owasp-amass/open-asset-model"
+	"github.com/owasp-amass/open-asset-model/domain"
 	"github.com/weppos/publicsuffix-go/net/publicsuffix"
 	"go.uber.org/ratelimit"
-	"github.com/owasp-amass/open-asset-model/domain"
-	"github.com/owasp-amass/amass/v4/engine/plugins/support"
 )
 
 type letitgo struct {
@@ -35,7 +35,7 @@ func NewLetItGo() et.Plugin {
 		name:   "LetItGo",
 		rlimit: ratelimit.New(2, ratelimit.WithoutSlack),
 		source: &et.Source{
-			Name: "LetItGo",
+			Name:       "LetItGo",
 			Confidence: 80,
 		},
 	}
@@ -48,9 +48,9 @@ func (l *letitgo) Name() string {
 
 // Start registers the plugin with the Amass engine
 func (l *letitgo) Start(r et.Registry) error {
-	
+
 	l.log = slog.New(slog.NewTextHandler(os.Stdout, nil)).WithGroup("plugin").With("name", l.name)
-	
+
 	if err := r.RegisterHandler(&et.Handler{
 		Plugin:       l,
 		Name:         l.name + "-Handler",
@@ -104,7 +104,6 @@ func (l *letitgo) query(e *et.Event, name string, source *et.Source) ([]*dbt.Ent
 	</soap:Body>
 	</soap:Envelope>`, name)))
 
-
 	url := "https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc"
 	l.log.Info("Sending SOAP Request", "envelope", soapEnvelope)
 	resp, err := postSOAP(context.TODO(), url, soapEnvelope)
@@ -138,7 +137,8 @@ func (l *letitgo) query(e *et.Event, name string, source *et.Source) ([]*dbt.Ent
 }
 
 func (l *letitgo) store(e *et.Event, names []string, src *et.Source) []*dbt.Entity {
-    return support.StoreFQDNsWithSource(e.Session, names, l.source, l.name, l.name+"-Handler")
+	return support.StoreFQDNsWithSource(e.Session, names, l.source, l.name, l.name+"-Handler")
+
 }
 
 // Response represents the XML response structure
@@ -190,7 +190,6 @@ func (l *letitgo) check(e *et.Event) error {
 	}
 	return nil
 }
-
 
 func (l *letitgo) lookup(e *et.Event, name string, since time.Time) []*dbt.Entity {
 	return support.SourceToAssetsWithinTTL(e.Session, name, string(oam.FQDN), l.source, since)
