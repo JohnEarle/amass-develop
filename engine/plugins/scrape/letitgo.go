@@ -137,8 +137,8 @@ func (l *letitgo) query(e *et.Event, name string, source *et.Source) ([]*dbt.Ent
 }
 
 func (l *letitgo) store(e *et.Event, names []string, src *et.Source) []*dbt.Entity {
+	l.log.Info("Storing domains", "names", names)
 	return support.StoreFQDNsWithSource(e.Session, names, l.source, l.name, l.name+"-Handler")
-
 }
 
 // Response represents the XML response structure
