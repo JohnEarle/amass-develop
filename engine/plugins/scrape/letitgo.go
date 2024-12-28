@@ -178,19 +178,19 @@ func (l *letitgo) store(e *et.Event, names []string, src *et.Source) []*dbt.Enti
 			continue
 		}
 		if edge == nil {
-			e.Session.Log().Error("Edge is nil")
+			l.log.Error("Edge is nil")
 			continue
 		}
 
 		// Log the edge details
-		e.Session.Log().Info("Edge created", "from", e.Entity.ID, "to", entity.ID, "relation", "associated_with")
+		l.log.Info("Edge created", "from", e.Entity.ID, "to", entity.ID, "relation", "associated_with")
 
 		_, err = e.Session.Cache().CreateEdgeProperty(edge, &property.SourceProperty{
 			Source:     l.source.Name,
 			Confidence: l.source.Confidence,
 		})
 		if err != nil {
-			e.Session.Log().Error("Failed to create edge property", "error", err)
+			l.log.Error("Failed to create edge property", "error", err)
 		}
 	}
 
