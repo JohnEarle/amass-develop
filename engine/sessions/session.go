@@ -5,6 +5,8 @@
 package sessions
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -15,6 +17,7 @@ import (
 	"time"
 
 	"github.com/caffix/stringset"
+	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/owasp-amass/amass/v4/config"
 	"github.com/owasp-amass/amass/v4/engine/pubsub"
@@ -41,11 +44,12 @@ type Session struct {
 	stats  *et.SessionStats
 	done   chan struct{}
 	set    *stringset.Set
+	redis  *redis.Client
 }
 
-// CreateSession initializes a new Session object based on the provided configuration.
+// NewSession initializes a new Session object based on the provided configuration and Redis client.
 // The session object represents the state of an active engine enumeration.
-func CreateSession(cfg *config.Config) (et.Session, error) {
+func NewSession(cfg *config.Config, redisClient *redis.Client) (*Session, error) {
 	// Use default configuration if none is provided
 	if cfg == nil {
 		cfg = config.NewConfig()
@@ -59,6 +63,7 @@ func CreateSession(cfg *config.Config) (et.Session, error) {
 		stats: new(et.SessionStats),
 		done:  make(chan struct{}),
 		set:   stringset.New(),
+		redis: redisClient,
 	}
 	s.log = slog.New(slog.NewJSONHandler(s.ps, nil)).With("session", s.id)
 
@@ -76,6 +81,16 @@ func CreateSession(cfg *config.Config) (et.Session, error) {
 	if err != nil || s.c == nil {
 		return nil, errors.New("failed to create the session cache")
 	}
+
+	// Store session in Redis
+	sessionData, err := json.Marshal(s)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.redis.Set(context.Background(), s.id.String(), sessionData, 0).Err(); err != nil {
+		return nil, err
+	}
+
 	return s, nil
 }
 
@@ -204,4 +219,31 @@ func createFileCacheRepo() (repository.Repository, string, error) {
 	}
 
 	return c, dir, nil
+}
+
+func (s *Session) Save() error {
+	sessionData, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+	return s.redis.Set(context.Background(), s.id.String(), sessionData, 0).Err()
+}
+
+func GetSession(redisClient *redis.Client, id uuid.UUID) (*Session, error) {
+	val, err := redisClient.Get(context.Background(), id.String()).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	var session Session
+	if err := json.Unmarshal([]byte(val), &session); err != nil {
+		return nil, err
+	}
+
+	session.redis = redisClient
+	return &session, nil
+}
+
+func (s *Session) Delete() error {
+	return s.redis.Del(context.Background(), s.id.String()).Err()
 }

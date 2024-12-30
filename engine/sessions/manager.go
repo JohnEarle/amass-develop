@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/owasp-amass/amass/v4/config"
 	et "github.com/owasp-amass/amass/v4/engine/types"
@@ -26,25 +27,39 @@ import (
 type manager struct {
 	sync.RWMutex
 	logger   *slog.Logger
-	sessions map[uuid.UUID]et.Session
+	redis    *redis.Client
+	sessions map[uuid.UUID]*Session
 }
 
 // NewManager: creates a new session storage.
 func NewManager(l *slog.Logger) et.SessionManager {
+	redisAddr := os.Getenv("REDIS_ADDR")
+	redisPassword := os.Getenv("REDIS_PASSWORD")
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisAddr,
+		Password: redisPassword,
+		DB:       0, // use default DB
+	})
+
 	return &manager{
 		logger:   l,
-		sessions: make(map[uuid.UUID]et.Session),
+		redis:    redisClient,
+		sessions: make(map[uuid.UUID]*Session),
 	}
 }
 
 func (r *manager) NewSession(cfg *config.Config) (et.Session, error) {
-	s, err := CreateSession(cfg)
+	s, err := NewSession(cfg, r.redis)
 	if err != nil {
 		return nil, err
 	}
-	if _, err = r.AddSession(s); err != nil {
+	if err := s.Save(); err != nil {
 		return nil, err
 	}
+	r.Lock()
+	r.sessions[s.ID()] = s
+	r.Unlock()
 	return s, nil
 }
 
@@ -73,6 +88,7 @@ func (r *manager) CancelSession(id uuid.UUID) {
 		return
 	}
 	s.Kill()
+	s.Delete()
 
 	t := time.NewTicker(500 * time.Millisecond)
 	defer t.Stop()
@@ -80,12 +96,11 @@ func (r *manager) CancelSession(id uuid.UUID) {
 	for range t.C {
 		ss := s.Stats()
 		ss.Lock()
-		total := ss.WorkItemsTotal
-		completed := ss.WorkItemsCompleted
-		ss.Unlock()
-		if completed >= total {
+		if ss.WorkItemsTotal == ss.WorkItemsCompleted {
+			ss.Unlock()
 			break
 		}
+		ss.Unlock()
 	}
 
 	r.Lock()
@@ -121,22 +136,12 @@ func (r *manager) GetSession(id uuid.UUID) et.Session {
 
 // Shutdown: cleans all sessions from a session storage and shutdown the session storage.
 func (r *manager) Shutdown() {
-	var list []uuid.UUID
-
 	r.Lock()
-	for k := range r.sessions {
-		list = append(list, k)
-	}
-	r.Unlock()
+	defer r.Unlock()
 
-	var wg sync.WaitGroup
-	for _, id := range list {
-		wg.Add(1)
-		go func(id uuid.UUID, wg *sync.WaitGroup) {
-			defer wg.Done()
-
-			r.CancelSession(id)
-		}(id, &wg)
+	for id, s := range r.sessions {
+		s.Kill()
+		s.Delete()
+		delete(r.sessions, id)
 	}
-	wg.Wait()
 }

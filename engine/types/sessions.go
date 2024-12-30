@@ -30,6 +30,7 @@ type Session interface {
 	EventSet() *stringset.Set
 	Done() bool
 	Kill()
+	Delete() error // Add the Delete method to the interface
 }
 
 type SessionStats struct {
