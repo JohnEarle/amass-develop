@@ -37,6 +37,11 @@ func NewManager(l *slog.Logger) et.SessionManager {
 	redisAddr := os.Getenv("REDIS_ADDR")
 	redisPassword := os.Getenv("REDIS_PASSWORD")
 
+	if redisAddr == "" || redisPassword == "" {
+		l.Error("Redis address or password not set in environment variables")
+		return nil
+	}
+
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     redisAddr,
 		Password: redisPassword,
@@ -53,6 +58,8 @@ func NewManager(l *slog.Logger) et.SessionManager {
 		return nil
 	}
 
+	l.Info("Successfully connected to Redis")
+
 	return &manager{
 		logger:   l,
 		redis:    redisClient,
@@ -63,9 +70,11 @@ func NewManager(l *slog.Logger) et.SessionManager {
 func (r *manager) NewSession(cfg *config.Config) (et.Session, error) {
 	s, err := NewSession(cfg, r.redis)
 	if err != nil {
+		r.logger.Error("Failed to create new session", "error", err)
 		return nil, err
 	}
 	if err := s.Save(); err != nil {
+		r.logger.Error("Failed to save session", "error", err)
 		return nil, err
 	}
 	r.Lock()
