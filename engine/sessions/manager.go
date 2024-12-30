@@ -34,8 +34,8 @@ type manager struct {
 
 // NewManager: creates a new session storage.
 func NewManager(l *slog.Logger) et.SessionManager {
-	redisAddr := os.Getenv("REDIS_ADDR")
-	redisPassword := os.Getenv("REDIS_PASSWORD")
+	redisAddr := "redis:6379"
+	redisPassword := "amass4OWASP"
 
 	if redisAddr == "" || redisPassword == "" {
 		l.Error("Redis address or password not set in environment variables")
