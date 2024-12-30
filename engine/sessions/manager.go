@@ -12,6 +12,7 @@ package sessions
  */
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -41,6 +42,16 @@ func NewManager(l *slog.Logger) et.SessionManager {
 		Password: redisPassword,
 		DB:       0, // use default DB
 	})
+
+	// Check Redis connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := redisClient.Ping(ctx).Result()
+	if err != nil {
+		l.Error("Failed to connect to Redis", "error", err)
+		return nil
+	}
 
 	return &manager{
 		logger:   l,
@@ -131,7 +142,15 @@ func (r *manager) GetSession(id uuid.UUID) et.Session {
 	if s, found := r.sessions[id]; found {
 		return s
 	}
-	return nil
+
+	s, err := GetSession(r.redis, id)
+	if err != nil {
+		r.logger.Error("Failed to get session from Redis", "error", err)
+		return nil
+	}
+
+	r.sessions[id] = s
+	return s
 }
 
 // Shutdown: cleans all sessions from a session storage and shutdown the session storage.
