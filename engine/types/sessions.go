@@ -29,7 +29,7 @@ type Session interface {
 	Stats() *SessionStats
 	EventSet() *redisstringset.Set
 	Done() bool
-	Kill()
+	Kill(caller string)
 	Delete() error // Add the Delete method to the interface
 }
 

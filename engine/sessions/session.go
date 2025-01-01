@@ -143,12 +143,13 @@ func (s *Session) Done() bool {
 	return false
 }
 
-func (s *Session) Kill() {
+func (s *Session) Kill(caller string) {
 	select {
 	case <-s.done:
 		return
 	default:
 	}
+	s.log.Info("Session killed by", "caller", caller)
 	close(s.done)
 }
 

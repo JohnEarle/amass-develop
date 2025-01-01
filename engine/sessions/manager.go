@@ -107,7 +107,7 @@ func (r *manager) CancelSession(id uuid.UUID) {
 	if s == nil {
 		return
 	}
-	s.Kill()
+	s.Kill("manager.CancelSession")
 	s.Delete()
 
 	t := time.NewTicker(500 * time.Millisecond)
@@ -168,7 +168,7 @@ func (r *manager) Shutdown() {
 	defer r.Unlock()
 
 	for id, s := range r.sessions {
-		s.Kill()
+		s.Kill("manager.Shutdown")
 		s.Delete()
 		delete(r.sessions, id)
 	}
