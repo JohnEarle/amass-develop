@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -145,14 +146,21 @@ func (r *manager) CancelSession(id uuid.UUID) {
 
 // GetSession: returns a session from a session storage.
 func (r *manager) GetSession(id uuid.UUID) et.Session {
-	r.logger.Info("GetSession", "id", id)
+	pc, _, _, ok := runtime.Caller(1)
+	caller := "unknown"
+	if ok {
+		caller = runtime.FuncForPC(pc).Name()
+	}
+
+	r.logger.Info("GetSession called", "id", id, "caller", caller)
 	r.RLock()
 	defer r.RUnlock()
 
 	if s, found := r.sessions[id]; found {
-		r.logger.Info("GetSession", "session", s)
+		r.logger.Info("GetSession found session")
 		return s
 	}
+	r.logger.Info("GetSession did not find session", "id", id)
 	return nil
 }
 
