@@ -120,9 +120,11 @@ func (d *dis) DispatchEvent(e *et.Event) error {
 		ap.Queue.Append(data)
 		// increment the number of events processed in the session
 		stats := e.Session.Stats()
+		fmt.Fprintf(os.Stdout, "Session locking - NewEventDataElement")
 		stats.Lock()
 		stats.WorkItemsTotal++
 		stats.Unlock()
+		fmt.Fprintf(os.Stdout, "Session Unlocked - NewEventDataElement")
 	}
 	return nil
 }
