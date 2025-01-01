@@ -6,6 +6,7 @@ package dispatcher
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"time"
@@ -87,7 +88,7 @@ func (d *dis) completedCallback(data interface{}) {
 	stats.Unlock()
 
 	// Log the completed events vs total to the console
-	d.logger.Info("Session progress", "completed", completed, "total", total)
+	fmt.Fprintln(os.Stdout, "Session progress", "completed", completed, "total", total)
 }
 
 func (d *dis) DispatchEvent(e *et.Event) error {
