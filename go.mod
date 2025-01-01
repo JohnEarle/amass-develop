@@ -4,6 +4,7 @@ go 1.23.1
 
 require (
 	github.com/99designs/gqlgen v0.17.61
+	github.com/JohnEarle/redisstringset v1.0.1
 	github.com/PuerkitoBio/goquery v1.10.0
 	github.com/PuerkitoBio/purell v1.2.1
 	github.com/adrg/strutil v0.3.1

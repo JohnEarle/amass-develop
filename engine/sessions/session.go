@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/caffix/stringset"
+	"github.com/JohnEarle/redisstringset"
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/owasp-amass/amass/v4/config"
@@ -43,7 +43,7 @@ type Session struct {
 	tmpdir string
 	stats  *et.SessionStats
 	done   chan struct{}
-	set    *stringset.Set
+	set    *redisstringset.Set
 	redis  *redis.Client
 }
 
@@ -62,7 +62,7 @@ func NewSession(cfg *config.Config, redisClient *redis.Client) (*Session, error)
 		ps:    pubsub.NewLogger(),
 		stats: new(et.SessionStats),
 		done:  make(chan struct{}),
-		set:   stringset.New(),
+		set:   redisstringset.New(redisClient, "events"),
 		redis: redisClient,
 	}
 	s.log = slog.New(slog.NewJSONHandler(s.ps, nil)).With("session", s.id)
@@ -130,7 +130,7 @@ func (s *Session) Stats() *et.SessionStats {
 	return s.stats
 }
 
-func (s *Session) EventSet() *stringset.Set {
+func (s *Session) EventSet() *redisstringset.Set {
 	return s.set
 }
 

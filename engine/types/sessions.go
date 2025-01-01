@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/caffix/stringset"
+	"github.com/JohnEarle/redisstringset"
 	"github.com/google/uuid"
 	"github.com/owasp-amass/amass/v4/config"
 	"github.com/owasp-amass/amass/v4/engine/pubsub"
@@ -27,7 +27,7 @@ type Session interface {
 	Cache() *cache.Cache
 	TmpDir() string
 	Stats() *SessionStats
-	EventSet() *stringset.Set
+	EventSet() *redisstringset.Set
 	Done() bool
 	Kill()
 	Delete() error // Add the Delete method to the interface
