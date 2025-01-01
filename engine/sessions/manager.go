@@ -145,22 +145,15 @@ func (r *manager) CancelSession(id uuid.UUID) {
 
 // GetSession: returns a session from a session storage.
 func (r *manager) GetSession(id uuid.UUID) et.Session {
+	r.logger.Info("GetSession", "id", id)
 	r.RLock()
 	defer r.RUnlock()
 
 	if s, found := r.sessions[id]; found {
+		r.logger.Info("GetSession", "session", s)
 		return s
 	}
-
-	r.logger.Info("Getting session from Redis", "id", id)
-	s, err := GetSession(r.redis, id)
-	if err != nil {
-		r.logger.Error("Failed to get session from Redis", "error", err)
-		return nil
-	}
-
-	r.sessions[id] = s
-	return s
+	return nil
 }
 
 // Shutdown: cleans all sessions from a session storage and shutdown the session storage.
