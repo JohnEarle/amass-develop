@@ -247,5 +247,6 @@ func GetSession(redisClient *redis.Client, id uuid.UUID) (*Session, error) {
 }
 
 func (s *Session) Delete() error {
+	fmt.Println(os.Stdout, "Session.Delete Called")
 	return s.redis.Del(context.Background(), s.id.String()).Err()
 }
