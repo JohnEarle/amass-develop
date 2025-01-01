@@ -242,7 +242,7 @@ func GetSession(redisClient *redis.Client, id uuid.UUID) (*Session, error) {
 	}
 
 	fmt.Println(os.Stdout, "Setting Session.Redis to Redis Clinet")
-	session.redis = redisClient
+	// session.redis = redisClient
 	return &session, nil
 }
 
