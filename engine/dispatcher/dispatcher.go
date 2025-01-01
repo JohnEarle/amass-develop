@@ -82,7 +82,12 @@ func (d *dis) completedCallback(data interface{}) {
 	stats := ede.Event.Session.Stats()
 	stats.Lock()
 	stats.WorkItemsCompleted++
+	completed := stats.WorkItemsCompleted
+	total := stats.WorkItemsTotal
 	stats.Unlock()
+
+	// Log the completed events vs total to the console
+	d.logger.Info("Session progress", "completed", completed, "total", total)
 }
 
 func (d *dis) DispatchEvent(e *et.Event) error {

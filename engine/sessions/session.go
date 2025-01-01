@@ -144,7 +144,9 @@ func (s *Session) Done() bool {
 }
 
 func (s *Session) Kill(caller string) {
-	s.log.Info("Session killed by", "caller", caller)
+	if s.log != nil {
+		s.log.Info("Session killed by", "caller", caller)
+	}
 	select {
 	case <-s.done:
 		return
