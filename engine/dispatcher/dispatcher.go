@@ -89,6 +89,7 @@ func (d *dis) completedCallback(data interface{}) {
 
 	// Log the completed events vs total to the console
 	fmt.Fprintln(os.Stdout, "Session progress", "completed", completed, "total", total)
+	d.logger.Info("Event processing completed", "event", ede.Event.Name, "entity", ede.Event.Entity.ID)
 }
 
 func (d *dis) DispatchEvent(e *et.Event) error {
@@ -125,6 +126,7 @@ func (d *dis) DispatchEvent(e *et.Event) error {
 		stats.WorkItemsTotal++
 		stats.Unlock()
 		fmt.Fprintln(os.Stdout, "Session Unlocked - NewEventDataElement")
+		d.logger.Info("Event dispatched", "event", e.Name, "entity", e.Entity.ID)
 	}
 	return nil
 }
