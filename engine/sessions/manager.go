@@ -73,7 +73,7 @@ func (r *manager) NewSession(cfg *config.Config) (et.Session, error) {
 		r.logger.Error("Failed to create new session", "error", err)
 		return nil, err
 	}
-	if err := s.Save(); err != nil {
+	if _, err = r.AddSession(s); err != nil {
 		r.logger.Error("Failed to save session", "error", err)
 		return nil, err
 	}
