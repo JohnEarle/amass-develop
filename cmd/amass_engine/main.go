@@ -27,7 +27,7 @@ func main() {
 	flag.StringVar(&logdir, "log-dir", "", "path to the log directory")
 	flag.Parse()
 
-	l := selectLogger(logdir)
+	l := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	e, err := engine.NewEngine(l)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to start the engine: %v", err)
