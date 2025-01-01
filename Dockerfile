@@ -2,7 +2,7 @@ FROM golang:1.23-alpine AS build
 RUN apk --no-cache add git
 WORKDIR /go/src/github.com/owasp-amass/amass
 COPY . .
-RUN go -race install -v ./...
+RUN go install -race -v ./...
 
 FROM alpine:latest
 RUN apk add --no-cache bash ca-certificates
