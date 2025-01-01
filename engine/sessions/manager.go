@@ -152,6 +152,7 @@ func (r *manager) GetSession(id uuid.UUID) et.Session {
 		return s
 	}
 
+	r.logger.Info("Getting session from Redis", "id", id)
 	s, err := GetSession(r.redis, id)
 	if err != nil {
 		r.logger.Error("Failed to get session from Redis", "error", err)
