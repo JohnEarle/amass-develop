@@ -241,7 +241,6 @@ func GetSession(redisClient *redis.Client, id uuid.UUID) (*Session, error) {
 		return nil, err
 	}
 
-	session.redis = redisClient
 	return &session, nil
 }
 
