@@ -2,6 +2,7 @@ FROM golang:1.23-alpine AS build
 RUN apk --no-cache add git
 WORKDIR /go/src/github.com/owasp-amass/engine
 COPY . .
+ENV CGO_ENABLED=1
 RUN go install -race -v ./...
 # Install delve debugger
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
