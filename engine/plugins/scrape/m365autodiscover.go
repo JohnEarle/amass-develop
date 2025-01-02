@@ -162,6 +162,20 @@ func (m *m365autodiscover) store(e *et.Event, names []string, src *et.Source) []
 }
 
 func (m *m365autodiscover) process(e *et.Event, assets []*dbt.Entity, source *et.Source) {
+	initialDomain := e.Entity.Asset.(*domain.FQDN).Name
+	_, initialConf := e.Session.Scope().IsAssetInScope(&domain.FQDN{Name: initialDomain}, 0)
+
+	if initialConf > 0 {
+		for _, asset := range assets {
+			fqdn, ok := asset.Asset.(*domain.FQDN)
+			if ok && fqdn != nil {
+				// Add the discovered domain to the scope
+				e.Session.Scope().Add(fqdn)
+				e.Session.Log().Info("Added domain to scope", "domain", fqdn.Name)
+			}
+		}
+	}
+
 	support.ProcessFQDNsWithSource(e, assets, m.source)
 }
 
