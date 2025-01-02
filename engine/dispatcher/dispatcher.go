@@ -123,9 +123,8 @@ func (d *dis) DispatchEvent(e *et.Event) error {
 		stats := e.Session.Stats()
 		fmt.Fprintln(os.Stdout, "Session locking - NewEventDataElement")
 		stats.Lock()
+		defer stats.Unlock()
 		stats.WorkItemsTotal++
-		stats.Unlock()
-		fmt.Fprintln(os.Stdout, "Session Unlocked - NewEventDataElement")
 		d.logger.Info("Event dispatched", "event", e.Name, "entity", e.Entity.ID)
 	}
 	return nil
