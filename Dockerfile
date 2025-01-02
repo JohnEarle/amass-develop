@@ -17,6 +17,7 @@ COPY --from=build /go/bin/oam_assoc /bin/assoc
 COPY --from=build /go/bin/oam_viz /bin/viz
 COPY --from=build /go/bin/oam_track /bin/track
 COPY --from=build /go/bin/oam_i2y /bin/i2y
+COPY --from=build /go/bin/dlv /bin/dlv
 ENV HOME=/
 RUN addgroup user \
     && adduser user -D -G user \
