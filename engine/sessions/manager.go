@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -103,6 +104,9 @@ func (r *manager) AddSession(s et.Session) (uuid.UUID, error) {
 
 // CancelSession: cancels a session in a session storage.
 func (r *manager) CancelSession(id uuid.UUID) {
+	_, file, line, _ := runtime.Caller(1)
+	r.logger.Info(fmt.Sprintf("CancelSession called from %s:%d", file, line))
+
 	s := r.GetSession(id)
 	if s == nil {
 		return
