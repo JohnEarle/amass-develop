@@ -17,6 +17,7 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/geziyor/geziyor v0.0.0-20240812061556-229b8ca83ac1
 	github.com/go-ini/ini v1.67.0
+	github.com/go-redis/redis/v8 v8.11.5
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/go-multierror v1.1.1
@@ -62,7 +63,6 @@ require (
 	github.com/glebarez/sqlite v1.11.0 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
 	github.com/go-kit/kit v0.13.0 // indirect
-	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
