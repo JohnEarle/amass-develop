@@ -7,11 +7,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"log/slog"
 	"net"
-	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -29,11 +26,6 @@ func main() {
 	var logdir string
 	flag.StringVar(&logdir, "log-dir", "", "path to the log directory")
 	flag.Parse()
-
-	// Start pprof HTTP server
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
 
 	l := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	e, err := engine.NewEngine(l)
