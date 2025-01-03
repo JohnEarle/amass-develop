@@ -171,6 +171,7 @@ func (m *m365autodiscover) process(e *et.Event, assets []*dbt.Entity, source *et
 			if ok && fqdn != nil {
 				// Add the discovered domain to the scope
 				e.Session.Scope().Add(fqdn)
+				fmt.Println("Added domain to scope", "domain", fqdn.Name)
 				e.Session.Log().Info("Added domain to scope", "domain", fqdn.Name)
 			}
 		}
