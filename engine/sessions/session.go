@@ -82,15 +82,6 @@ func NewSession(cfg *config.Config, redisClient *redis.Client) (*Session, error)
 		return nil, errors.New("failed to create the session cache")
 	}
 
-	// Store session in Redis
-	sessionData, err := json.Marshal(s)
-	if err != nil {
-		return nil, err
-	}
-	if err := s.redis.Set(context.Background(), s.id.String(), sessionData, 0).Err(); err != nil {
-		return nil, err
-	}
-
 	return s, nil
 }
 
@@ -223,11 +214,7 @@ func createFileCacheRepo() (repository.Repository, string, error) {
 }
 
 func (s *Session) Save() error {
-	sessionData, err := json.Marshal(s)
-	if err != nil {
-		return err
-	}
-	return s.redis.Set(context.Background(), s.id.String(), sessionData, 0).Err()
+	return nil
 }
 
 func GetSession(redisClient *redis.Client, id uuid.UUID) (*Session, error) {
