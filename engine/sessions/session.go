@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/JohnEarle/redisstringset"
@@ -45,6 +46,7 @@ type Session struct {
 	done   chan struct{}
 	set    *redisstringset.Set
 	redis  *redis.Client
+	mu     sync.Mutex // Add a mutex to the Session struct
 }
 
 // NewSession initializes a new Session object based on the provided configuration and Redis client.
@@ -122,16 +124,20 @@ func (s *Session) Stats() *et.SessionStats {
 }
 
 func (s *Session) EventSet() *redisstringset.Set {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.set
 }
 
 func (s *Session) Done() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	select {
 	case <-s.done:
 		return true
 	default:
+		return false
 	}
-	return false
 }
 
 func (s *Session) Kill(caller string) {
