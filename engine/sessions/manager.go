@@ -37,7 +37,6 @@ type manager struct {
 func NewManager(l *slog.Logger) et.SessionManager {
 	redisAddr := "redis:6379"
 	redisPassword := "amass4OWASP"
-
 	if redisAddr == "" || redisPassword == "" {
 		l.Error("Redis address or password not set in environment variables")
 		return nil
@@ -78,9 +77,7 @@ func (r *manager) NewSession(cfg *config.Config) (et.Session, error) {
 		r.logger.Error("Failed to save session", "error", err)
 		return nil, err
 	}
-	r.Lock()
 	r.sessions[s.ID()] = s
-	r.Unlock()
 	return s, nil
 }
 
@@ -89,9 +86,6 @@ func (r *manager) AddSession(s et.Session) (uuid.UUID, error) {
 	if s == nil {
 		return uuid.UUID{}, nil
 	}
-
-	r.Lock()
-	defer r.Unlock()
 
 	var id uuid.UUID
 	if sess, ok := s.(*Session); ok {
@@ -127,9 +121,6 @@ func (r *manager) CancelSession(id uuid.UUID) {
 		ss.Unlock()
 	}
 
-	r.Lock()
-	defer r.Unlock()
-
 	if c := r.sessions[id].Cache(); c != nil {
 		c.Close()
 	}
@@ -160,9 +151,6 @@ func (r *manager) GetSession(id uuid.UUID) et.Session {
 
 // Shutdown: cleans all sessions from a session storage and shutdown the session storage.
 func (r *manager) Shutdown() {
-	r.Lock()
-	defer r.Unlock()
-
 	for id, s := range r.sessions {
 		s.Kill("manager.Shutdown")
 		s.Delete()
