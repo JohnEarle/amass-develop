@@ -111,6 +111,9 @@ func (d *dis) DispatchEvent(e *et.Event) error {
 	e.Dispatcher = d
 	// do not schedule the same asset more than once
 	set := e.Session.EventSet()
+	set.Lock() // Lock the EventSet
+	defer set.Unlock()
+
 	if set.Has(e.Entity.ID) {
 		return errors.New("this event was processed previously")
 	}
