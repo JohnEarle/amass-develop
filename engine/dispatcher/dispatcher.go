@@ -115,16 +115,17 @@ func (d *dis) DispatchEvent(e *et.Event) error {
 		return errors.New("this event was processed previously")
 	}
 	set.Insert(e.Entity.ID)
+	fmt.Fprintln(os.Stdout, "Event added to EventSet:", e.Entity.ID)
 
 	if data := et.NewEventDataElement(e); data != nil {
 		data.Queue = d.completed
 		ap.Queue.Append(data)
 		// increment the number of events processed in the session
 		stats := e.Session.Stats()
-		fmt.Fprintln(os.Stdout, "Session locking - NewEventDataElement")
 		stats.Lock()
 		defer stats.Unlock()
 		stats.WorkItemsTotal++
+		fmt.Fprintln(os.Stdout, "Event dispatched:", e.Name, "entity:", e.Entity.ID)
 		d.logger.Info("Event dispatched", "event", e.Name, "entity", e.Entity.ID)
 	}
 	return nil
